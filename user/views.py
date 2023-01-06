@@ -15,8 +15,15 @@ def signIn(request):
         email = body['email']
         password = body['password']
         
-        user = _checkUser(email, password, 'authenticate')
-        data = DATABASE.child('users').child(user.get('localId')).get().val()
+        try:
+            user = _authOperations(email, password, 'authenticate')
+        except Exception as error:
+            return JsonResponse({'success': False, 'error': str(error)})
+        
+        try:
+            data = _getDatabaseRegister(user.get('localId'))
+        except Exception as error:
+            return JsonResponse({'success': False, 'error': str(error)})
 
         return  JsonResponse({'sucess': True, 'data': data})        
 
@@ -34,20 +41,39 @@ def signUp(request):
             'email': email,
             'creation_time': time.ctime()
         }
+        try:
+            user = _authOperations(email, password, 'create')
+        except Exception as error:
+            return JsonResponse({'success': False, 'error': str(error)})
         
-        user = _checkUser(email, password, 'create')
-        DATABASE.child('users').child(user.get('localId')).set(data)
+        try:
+            _createDatabaseRegister(user.get('localId'), data)
+        except Exception as error:
+            return JsonResponse({'success': False, 'error': str(error)})
         
         return JsonResponse({'sucess': True, 'data': data}) 
 
 
-def _checkUser(email: str, password: str, operation: str):
+def _authOperations(email: str, password: str, operation: str):
     try:
         if operation == 'create':
             return AUTH.create_user_with_email_and_password(email=email, password=password)
         elif operation == 'authenticate':
             return AUTH.sign_in_with_email_and_password(email=email, password=password)
     except:
-        AUTH.delete_user_account(email)
         raise Exception('Unable to ' + operation + ' user, check with support!')
+    
+def _createDatabaseRegister(userId, data):
+    if DATABASE:
+        try:
+            DATABASE.child('users').child(userId).set(data)
+        except:
+            raise Exception('Unable to create user register, check with support!')
+        
+def _getDatabaseRegister(userId):
+    if DATABASE:
+        try:
+            return DATABASE.child('users').child(userId).get().val()
+        except:
+            raise Exception('Unable to get user data, check with support!')
         
