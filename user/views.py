@@ -16,11 +16,9 @@ def signIn(request):
         password = body['password']
         
         user = _checkUser(email, password, 'authenticate')
-        
-        name = DATABASE.child('users').child(user.get('localId')).get().val()['name']
-        user.update({"name": name})
+        data = DATABASE.child('users').child(user.get('localId')).get().val()
 
-        return  JsonResponse({'sucess': True, 'data': user})        
+        return  JsonResponse({'sucess': True, 'data': data})        
 
 
 @csrf_exempt
@@ -31,21 +29,25 @@ def signUp(request):
         name = body['name']
         email = body['email']
         password = body['password']
+        data = {
+            'name': name,
+            'email': email,
+            'creation_time': time.ctime()
+        }
         
         user = _checkUser(email, password, 'create')
-        DATABASE.child('users').child(user.get('localId')).set({'name':name, 'creation_time': time.ctime()})
-        user.update({'name': name})
-      
-        return JsonResponse({'sucess': True, 'data': user})
+        DATABASE.child('users').child(user.get('localId')).set(data)
+        
+        return JsonResponse({'sucess': True, 'data': data}) 
 
 
 def _checkUser(email: str, password: str, operation: str):
-    operations = {
-        'create': AUTH.create_user_with_email_and_password(email=email, password=password),
-        'authenticate': AUTH.sign_in_with_email_and_password(email=email, password=password)
-    }
     try:
-        operations['operation']
+        if operation == 'create':
+            return AUTH.create_user_with_email_and_password(email=email, password=password)
+        elif operation == 'authenticate':
+            return AUTH.sign_in_with_email_and_password(email=email, password=password)
     except:
-        return JsonResponse({'success': False, 'error': 'Unable to ' + operation + ' user, check with support!'})
+        AUTH.delete_user_account(email)
+        raise Exception('Unable to ' + operation + ' user, check with support!')
         
