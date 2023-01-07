@@ -16,12 +16,12 @@ def signIn(request):
         password = body['password']
         
         try:
-            user = _authOperations(email, password, 'authenticate')
+            user = __authOperations(email, password, 'authenticate')
         except Exception as error:
             return JsonResponse({'success': False, 'error': str(error)})
         
         try:
-            data = _getDatabaseRegister(user.get('localId'))
+            data = __getDatabaseRegister(user.get('localId'))
         except Exception as error:
             return JsonResponse({'success': False, 'error': str(error)})
 
@@ -42,38 +42,51 @@ def signUp(request):
             'creation_time': time.ctime()
         }
         try:
-            user = _authOperations(email, password, 'create')
+            user = __authOperations(email, password, 'create')
         except Exception as error:
             return JsonResponse({'success': False, 'error': str(error)})
         
         try:
-            _createDatabaseRegister(user.get('localId'), data)
+            __createDatabaseRegister(user.get('localId'), data)
         except Exception as error:
+            AUTH.delete_user_account(user.get('idToken'))
             return JsonResponse({'success': False, 'error': str(error)})
+           
         
         return JsonResponse({'sucess': True, 'data': data}) 
 
 
-def _authOperations(email: str, password: str, operation: str):
-    try:
-        if operation == 'create':
-            return AUTH.create_user_with_email_and_password(email=email, password=password)
-        elif operation == 'authenticate':
-            return AUTH.sign_in_with_email_and_password(email=email, password=password)
-    except:
-        raise Exception('Unable to ' + operation + ' user, check with support!')
+def __authOperations(email: str, password: str, operation: str):
+    if not AUTH:
+        raise Exception('Unable to ' + operation + ' user, probably our system of authentication are unavailable, please check with support!')
     
-def _createDatabaseRegister(userId, data):
-    if DATABASE:
+    if operation == 'create':
         try:
-            DATABASE.child('users').child(userId).set(data)
+            return AUTH.create_user_with_email_and_password(email=email, password=password)
         except:
-            raise Exception('Unable to create user register, check with support!')
+            raise Exception('Email already exist in our database, please check with support!')    
+    elif operation == 'authenticate':
+        try:
+            return AUTH.sign_in_with_email_and_password(email=email, password=password)
+        except:
+            raise Exception('Email or password is incorrect!')
+    
+    
+def __createDatabaseRegister(userId, data):
+    if not DATABASE:
+        raise Exception('Database was encountered unavailable, please check with support!')
+    
+    try:
+        DATABASE.child('users').child(userId).set(data)
+    except:
+        raise Exception('Unable to create user register, please check with support!')
         
-def _getDatabaseRegister(userId):
-    if DATABASE:
-        try:
-            return DATABASE.child('users').child(userId).get().val()
-        except:
-            raise Exception('Unable to get user data, check with support!')
+def __getDatabaseRegister(userId):
+    if not DATABASE:
+        raise Exception('Database was encountered unavailable, please check with support!')
+    
+    try:
+        return DATABASE.child('users').child(userId).get().val()
+    except:
+        raise Exception('Unable to get user data, please check with support!')
         
